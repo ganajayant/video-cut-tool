@@ -1,5 +1,5 @@
-import { Server } from 'socket.io';
 import { createServer } from 'http';
+import { Server } from 'socket.io';
 import app from './app.js';
 import config from './config.js';
 import socketController from './controllers/socket-controller.js';
@@ -25,9 +25,13 @@ const io = new Server(server, {
 	allowEIO3: true
 });
 
+app.set('socketid', []);
+
 io.sockets.on('connection', socket => {
 	console.log('CONNECTED', socket.id);
-	app.set('socketid', socket.id);
+	const currentSocketList = app.get('socketid');
+	currentSocketList.push(socket.id);
+	app.set('socketid', currentSocketList);
 	socketController(socket, io);
 });
 

@@ -1,18 +1,57 @@
+import cors from 'cors';
 import express from 'express';
 import mongoose from 'mongoose';
 import path from 'path';
-import cors from 'cors';
-// import bodyParser from 'body-parser';
-import logger from 'morgan';
-import cookieParser from 'cookie-parser';
+
+import sqlite3 from 'sqlite3'
+
+// import { createRequire } from "module";
+// const require = createRequire(import.meta.url);
+// const sqlite3 = require('sqlite3').verbose();
+
 import fileUpload from 'express-fileupload';
 import session from 'express-session';
+import logger from 'morgan';
 import PopupTools from 'popup-tools';
 
-import { processVideo, uploadVideos, downloadVideo } from './controllers/router-controller.js';
-import config from './config.js';
-import UserModel from './models/User.js';
 import auth from './auth.js';
+import config from './config.js';
+import { downloadVideo, processVideo, uploadVideos } from './controllers/router-controller.js';
+import UserModel from './models/User.js';
+import VideoModel from './models/Video.js';
+import { log } from 'console';
+
+
+export const db = new sqlite3.Database("Admin.db", err => {
+	if (err) {
+		return console.log(err.message);
+	} else {
+		console.log("connected to Database");
+	}
+});
+
+const table = `CREATE TABLE if not exists User(
+	id VARCHAR(2000),
+	username VARCHAR(2000),
+	mediawikiId VARCHAR(2000),
+	socketId VARCHAR(2000),
+	refreshToken VARCHAR(2000),
+	mediawikiToken VARCHAR(2000),
+	mediawikiTokenSecret VARCHAR(2000)
+	);`;
+
+
+db.run(table, err => {
+	if (err) {
+		return console.log(err.message)
+	}
+	else {
+		console.log("Table Created");
+	}
+
+})
+
+
 
 function connectMongoDB(retry = 0) {
 	const option = {
@@ -57,7 +96,6 @@ app.use(
 app.use(logger('dev'));
 app.use(express.json({ limit: '500mb' }));
 app.use(express.urlencoded({ limit: '500mb', extended: true }));
-app.use(cookieParser());
 
 // Use CORS and File Upload modules here
 app.use(cors());
@@ -65,8 +103,7 @@ app.use(cors());
 app.use(
 	session({
 		secret: 'OAuth Session',
-		saveUninitialized: true,
-		resave: true
+		saveUninitialized: true
 	})
 );
 
@@ -77,6 +114,28 @@ app.get('/', (req, res) => {
 
 app.get('/api/', (req, res) => {
 	res.json({ data: 'Back-end is up' });
+});
+
+app.get('/api/user/:mediawiki_user_id', async (req, res) => {
+	const userId = req.params.mediawiki_user_id;
+	const userDoc = await UserModel.findOne({ mediawikiId: userId });
+	const videoList = userDoc.videos.map(videoIds => videoIds.toString());
+	res.send({
+		username: userDoc.username,
+		mediawiki_id: userId,
+		videos: videoList
+	});
+});
+
+app.get('/api/video/:video_id', async (req, res) => {
+	const { video_id } = req.params;
+	const videoData = await VideoModel.findOne(
+		{
+			_id: mongoose.Types.ObjectId(video_id)
+		},
+		{ _id: 0 }
+	);
+	res.send(videoData);
 });
 
 app.get('/api/error', (req, res) => {
@@ -108,8 +167,35 @@ app.get('/api/auth/mediawiki/callback', auth, async (req, res) => {
 	const userProfile = JSON.parse(JSON.stringify(profile));
 	userProfile.refreshToken = refreshToken;
 	try {
+		db.run(`select username from User where mediaWikiId = ?`, [userProfile.mediawikiId], err => {
+			if (err) {
+				return console.log(err.message);
+			}
+			else {
+				db.run(`INSERT INTO User(username) values (?)`, [userProfile.username], err => {
+					if (err) {
+						return console.log(err.message);
+					}
+					else {
+						console.log("User Created");
+					}
+				})
+			}
+		})
+
+
 		await UserModel.updateOne({ mediawikiId: sub }, userProfile, { upsert: true });
+
 		const userDoc = await UserModel.findOne({ mediawikiId: sub }).exec();
+		const query = `select * from User where mediaWikiId = ?`;
+		db.all(query, [sub], (err, rows) => {
+			if (err) {
+				throw err;
+			}
+			rows.forEach((row) => {
+				console.log(row);
+			});
+		});
 		const { _id, mediawikiId, username, socketId } = userDoc;
 		const returnUserDocData = {
 			_id,

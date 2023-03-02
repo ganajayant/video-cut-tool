@@ -8,8 +8,6 @@ switch (process.env.NODE_ENV) {
 			PORT: 4000,
 
 			// Ouath 2
-			CLIENT_ID: '<ProdKeys>',
-			CLIENT_SECRET: '<ProdKeys>'
 		};
 		break;
 	default:
@@ -19,8 +17,6 @@ switch (process.env.NODE_ENV) {
 			PORT: 4000,
 
 			// OAuth2 Credentials
-			CLIENT_ID: '<localkeys>',
-			CLIENT_SECRET: '<localkeys>',
 		};
 }
 

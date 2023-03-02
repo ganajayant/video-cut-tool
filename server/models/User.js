@@ -7,11 +7,12 @@ const UserSchema = new Schema({
 	mediawikiId: String,
 	socketId: String,
 	refreshToken: String,
+	videos: [{ type: Schema.Types.ObjectId, ref: 'Video' }],
 	mediawikiToken: { type: String, select: false },
 	mediawikiTokenSecret: { type: String, select: false }
 });
 
-UserSchema.pre('save', function (next) {
+UserSchema.pre('save', (next) => {
 	const now = new Date();
 	this.updated_at = now;
 	if (!this.created_at) {

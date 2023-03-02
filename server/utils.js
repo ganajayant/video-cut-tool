@@ -1,8 +1,7 @@
+import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { spawn } from 'child_process';
 import { parentPort } from 'worker_threads';
-import axios from 'axios';
 
 const fsPromises = fs.promises;
 
@@ -50,6 +49,14 @@ function deleteFiles(files) {
  * @returns {obj} A reject or resolve promise
  */
 function spawnAsyn(args, stage, videoId, resolveObj = {}, trimDuration = {}) {
+	parentPort.postMessage({
+		type: 'server-side-update',
+		videoId,
+		data: {
+			status: 'processing',
+			stage,
+		}
+	});
 	return new Promise((resolve, reject) => {
 		const cmd = spawn('ffmpeg', args);
 		let duration = null;
@@ -114,10 +121,14 @@ function spawnAsyn(args, stage, videoId, resolveObj = {}, trimDuration = {}) {
 
 				// Send to parent process
 				parentPort.postMessage({
-					status: 'processing',
-					video_id: videoId,
-					stage,
-					progress_info: progressInfo
+					type: 'frontend-update',
+					videoId,
+					data: {
+						status: 'processing',
+						video_id: videoId,
+						stage,
+						progress_info: progressInfo
+					}
 				});
 			});
 		});
